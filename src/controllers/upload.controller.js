@@ -3,13 +3,22 @@ const { scanBytes, STRICT_PUBLIC_UPLOAD } = require('pompelmi');
 const ApiError = require('../utils/ApiError');
 const catchAsync = require('../utils/catchAsync');
 
-const SCAN_TIMEOUT_MS = 5000; // 5 seconds
+const SCAN_TIMEOUT_MS = 5000;
 
-const scanWithTimeout = (buffer, options) => {
-  return Promise.race([
-    scanBytes(buffer, options),
-    new Promise((_, reject) => setTimeout(() => reject(new Error('Scan timeout')), SCAN_TIMEOUT_MS)),
-  ]);
+const scanBytesWithTimeout = async (buffer, options) => {
+  let timeoutId;
+
+  const timeoutPromise = new Promise((_, reject) => {
+    timeoutId = setTimeout(() => {
+      reject(new Error('Scan timeout'));
+    }, SCAN_TIMEOUT_MS);
+  });
+
+  try {
+    return await Promise.race([scanBytes(buffer, options), timeoutPromise]);
+  } finally {
+    clearTimeout(timeoutId);
+  }
 };
 
 const uploadFile = catchAsync(async (req, res) => {
@@ -18,25 +27,24 @@ const uploadFile = catchAsync(async (req, res) => {
   }
 
   let report;
+
   try {
-    report = await scanWithTimeout(req.file.buffer, {
+    report = await scanBytesWithTimeout(req.file.buffer, {
       filename: req.file.originalname,
       mimeType: req.file.mimetype,
       policy: STRICT_PUBLIC_UPLOAD,
       failClosed: true,
     });
   } catch (err) {
-    // timeout or scan error — fail closed
-    throw new ApiError(httpStatus.UNPROCESSABLE_ENTITY, `Upload blocked: scan error — ${err.message}`);
+    throw new ApiError(httpStatus.UNPROCESSABLE_ENTITY, 'Upload blocked: scan could not complete');
   }
 
-  if (report.verdict === 'malicious' || report.verdict === 'suspicious') {
-    throw new ApiError(httpStatus.UNPROCESSABLE_ENTITY, `Upload blocked: ${report.reasons.join(', ')}`);
+  if (report.verdict === 'ScanError') {
+    throw new ApiError(httpStatus.UNPROCESSABLE_ENTITY, 'Upload blocked: scan could not complete');
   }
 
   if (report.verdict !== 'clean') {
-    // handles ScanError or any unexpected verdict — fail closed
-    throw new ApiError(httpStatus.UNPROCESSABLE_ENTITY, 'Upload blocked: scan could not complete');
+    throw new ApiError(httpStatus.UNPROCESSABLE_ENTITY, `Upload blocked: ${report.reasons.join(', ')}`);
   }
 
   res.status(httpStatus.OK).send({

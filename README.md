@@ -221,7 +221,7 @@ List of available routes:
 >
 > For ClamAV-backed scanning, make sure `clamd` is installed and running locally or in a sidecar container.
 >
-> If `clamd` is unavailable, scan errors occur, or the file receives any verdict other than `clean`, the upload is rejected by default.
+> If `clamd` is unavailable, the scan times out, returns `ScanError`, or the file receives any verdict other than `clean`, the upload is rejected by default.
 
 ## Error Handling
 

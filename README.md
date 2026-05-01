@@ -87,6 +87,7 @@ cp .env.example .env
 - **Git hooks**: with [husky](https://github.com/typicode/husky) and [lint-staged](https://github.com/okonet/lint-staged)
 - **Linting**: with [ESLint](https://eslint.org) and [Prettier](https://prettier.io)
 - **Editor config**: consistent editor configuration using [EditorConfig](https://editorconfig.org)
+- **File upload**: secure file upload with in-process virus scanning using [multer](https://github.com/expressjs/multer) and [pompelmi](https://github.com/pompelmi/pompelmi)
 
 ## Commands
 
@@ -212,6 +213,15 @@ List of available routes:
 `GET /v1/users/:userId` - get user\
 `PATCH /v1/users/:userId` - update user\
 `DELETE /v1/users/:userId` - delete user
+
+**Upload routes**:  
+`POST /v1/upload` - upload a file (requires authentication)
+
+> **Prerequisites for file upload**: The upload endpoint uses [pompelmi](https://github.com/pompelmi/pompelmi) for file scanning.
+>
+> For ClamAV-backed scanning, make sure `clamd` is installed and running locally or in a sidecar container.
+>
+> If `clamd` is unavailable, scan errors occur, or the file receives any verdict other than `clean`, the upload is rejected by default.
 
 ## Error Handling
 

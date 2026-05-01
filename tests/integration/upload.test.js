@@ -96,6 +96,36 @@ describe('Upload routes', () => {
         .expect(httpStatus.UNPROCESSABLE_ENTITY);
     });
 
+    test('should return 422 error if scan returns ScanError verdict', async () => {
+      await insertUsers([userOne]);
+      scanBytes.mockResolvedValue({ verdict: 'ScanError', reasons: ['scanner could not complete'] });
+
+      await request(app)
+        .post('/v1/upload')
+        .set('Authorization', `Bearer ${userOneAccessToken}`)
+        .attach('file', Buffer.from('some content'), {
+          filename: 'test.pdf',
+          contentType: 'application/pdf',
+        })
+        .expect(httpStatus.UNPROCESSABLE_ENTITY);
+    });
+
+    test('should return 422 error if scan times out', async () => {
+      await insertUsers([userOne]);
+      scanBytes.mockImplementation(
+        () => new Promise((_, reject) => setTimeout(() => reject(new Error('Scan timeout')), 100))
+      );
+
+      await request(app)
+        .post('/v1/upload')
+        .set('Authorization', `Bearer ${userOneAccessToken}`)
+        .attach('file', Buffer.from('some content'), {
+          filename: 'test.pdf',
+          contentType: 'application/pdf',
+        })
+        .expect(httpStatus.UNPROCESSABLE_ENTITY);
+    });
+
     test('should return 200 if admin uploads a clean valid file', async () => {
       await insertUsers([admin]);
       scanBytes.mockResolvedValue({ verdict: 'clean', reasons: [] });
